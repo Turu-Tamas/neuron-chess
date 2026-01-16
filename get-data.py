@@ -94,6 +94,7 @@ def main():
     parser.add_argument("--skip-download", action="store_true", help="Skip downloading PGN and preparing weights")
     parser.add_argument("--input-file", type=str, help="Input PGN file (auto-determined if not specified)")
     parser.add_argument("--output-file", type=str, default="data/lc0-hidden/lichess_elite_2025-11.h5", help="Output HDF5 file")
+    parser.add_argument("--compression", type=str, default=None, choices=[None, "gzip", "lzf"], help="Compression algorithm for HDF5 datasets (gzip or lzf)")
 
     args = parser.parse_args()
     
@@ -137,6 +138,7 @@ def main():
     print(f"  Total processes: {args.num_processes}")
     print(f"  Computation processes: {NUM_MODELS}")
     print(f"  Preprocessing processes: {NUM_PREPROCESSING}")
+    print(f"  Compression: {args.compression or 'none'}")
     print("=" * 60 + "\n")
 
     os.makedirs("/".join(args.output_file.split("/")[:-1]), exist_ok=True)
@@ -157,7 +159,7 @@ def main():
     writer = mp.Process(
         target=write_process_main, 
         args=(output_queue, metadata_queue, args.output_file), 
-        kwargs={"dtype": output_dtype}
+        kwargs={"dtype": output_dtype, "compression": args.compression}
     )
 
     preprocessors = []

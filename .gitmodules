@@ -1,0 +1,4 @@
+[submodule "lc0"]
+	path = lc0
+	url = https://github.com/Turu-Tamas/lc0.git
+	branch = release/0.32

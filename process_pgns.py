@@ -120,49 +120,49 @@ def metadata_structured_array(data: list[ChessMetadata]):
 
     return result
 
-def write_process_main(output_queue: mp.Queue, metadata_queue: mp.Queue, out_file_path: str, dtype=np.float16):
+def write_process_main(output_queue: mp.Queue, metadata_queue: mp.Queue, out_file_path: str, dtype=np.float16, compression=None):
     out_file = h5py.File(out_file_path, "w")
     dsets: dict[str, h5py.Dataset] = {}
 
     # Board state datasets
     dsets[LEELA_OUTPUT] = out_file.create_dataset(
         LEELA_OUTPUT, shape=[0, *OUTPUT_SHAPE], dtype=dtype, 
-        chunks=True, maxshape=(None, *INPUT_SHAPE)
+        chunks=True, maxshape=(None, *INPUT_SHAPE), compression=compression
     )
 
     # Metadata group and datasets
     meta_group = out_file.create_group("metadata")
     dsets[WHITE_ELO] = meta_group.create_dataset(
         WHITE_ELO, shape=[0], dtype=int, 
-        chunks=True, maxshape=(None,)
+        chunks=True, maxshape=(None,), compression=compression
     )
     dsets[BLACK_ELO] = meta_group.create_dataset(
         BLACK_ELO, shape=[0], dtype=int, 
-        chunks=True, maxshape=(None,)
+        chunks=True, maxshape=(None,), compression=compression
     )
     dsets[WHITE_RATING_DIFF] = meta_group.create_dataset(
         WHITE_RATING_DIFF, shape=[0], dtype=int, 
-        chunks=True, maxshape=(None,)
+        chunks=True, maxshape=(None,), compression=compression
     )
     dsets[BLACK_RATING_DIFF] = meta_group.create_dataset(
         BLACK_RATING_DIFF, shape=[0], dtype=int, 
-        chunks=True, maxshape=(None,)
+        chunks=True, maxshape=(None,), compression=compression
     )
     dsets[WHITE] = meta_group.create_dataset(
         WHITE, shape=[0], dtype=int, 
-        chunks=True, maxshape=(None,)
+        chunks=True, maxshape=(None,), compression=compression
     )
     dsets[BLACK] = meta_group.create_dataset(
         BLACK, shape=[0], dtype=int, 
-        chunks=True, maxshape=(None,)
+        chunks=True, maxshape=(None,), compression=compression
     )
     dsets[OPENING] = meta_group.create_dataset(
         OPENING, shape=[0], dtype=int, 
-        chunks=True, maxshape=(None,)
+        chunks=True, maxshape=(None,), compression=compression
     )
     dsets[TERMINATION] = meta_group.create_dataset(
         TERMINATION, shape=[0], dtype=h5py.string_dtype(), 
-        chunks=True, maxshape=(None,)
+        chunks=True, maxshape=(None,), compression=compression
     )
 
     def extend_dset(key: str, val: np.ndarray):
