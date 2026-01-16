@@ -14,122 +14,93 @@ import h5py
 from functools import partial
 import sys
 import numpy.ma
+from typing import Optional, Iterable
+from queue import Empty
+import bulletchess
+from math import floor
+
+INPUT_SHAPE = (112, 8, 8)
+OUTPUT_SHAPE = (64, 8, 8)
 
 BATCH_SIZE = 1000
 BLACK_WIN = -1
 WHITE_WIN = 1
 DRAW = 0
 
-TERMINATION_TO_ID = {
-    # Normal endings
-    "Normal": 1,
-    "Checkmate": 2,
-    "White resigned": 3,
-    "Black resigned": 4,
-    "White resigns": 3,
-    "Black resigns": 4,
-
-    # Draws
-    "Stalemate": 10,
-    "Draw agreed": 11,
-    "Agreement": 11,
-    "Draw by repetition": 12,
-    "Draw by threefold repetition": 12,
-    "Draw by fifty-move rule": 13,
-    "Draw by 50-move rule": 13,
-    "Draw by insufficient material": 14,
-    "Insufficient material": 14,
-
-    # Time-related
-    "Time forfeit": 20,
-    "White ran out of time": 21,
-    "Black ran out of time": 22,
-    "Draw by timeout vs insufficient material": 23,
-
-    # Administrative / external
-    "Forfeit": 30,
-    "Adjudication": 31,
-    "Game abandoned": 32,
-
-    # Technical / online
-    "Connection lost": 40,
-    "Server error": 41,
-    "Technical issue": 42,
-}
+WHITE = "White"
+BLACK = "Black"
+LEELA_OUTPUT = "lc0_hidden"
+WHITE_RATING_DIFF = "WhiteRatingDiff"
+BLACK_RATING_DIFF = "BalckRatingDiff"
+WHITE_ELO = "WhiteElo"
+BLACK_ELO = "BlackElo"
+RESULT = "Result"
+OPENING = "Opening"
+TIME_CONTROL = "TimeControl"
+TERMINATION = "Termination"
 
 @dataclass
 class ChessMetadata:
-    white_id: np.ndarray
-    black_id: np.ndarray
-    white_elo: np.ndarray
-    black_elo: np.ndarray
-    result: np.ndarray
+    white_id: int
+    black_id: int
+    white_elo: int
+    black_elo: int
+    result: int
     # openings have subtypes, primary type is first, subtypes after
-    opening_ids: np.ma.MaskedArray
-    time_control: np.ndarray
-    white_rating_diff: np.ndarray
-    black_rating_diff: np.ndarray
-    termination: np.ndarray
+    opening_id: int
+    time_control: str
+    white_rating_diff: Optional[int]
+    black_rating_diff: Optional[int]
+    termination: str
 
-    @staticmethod
-    def with_preallocated_size(n: int):
-        return ChessMetadata(
-            white_elo=np.empty([n], dtype=np.uint16),
-            black_elo=np.empty([n], dtype=np.uint16),
-            white_id=np.empty([n], dtype=np.uint32),
-            black_id=np.empty([n], dtype=np.uint32),
-            result=np.empty([n], dtype=np.int8),
-            opening_ids=np.ma.empty([n, 4], dtype=np.uint16),
-            time_control=np.empty([n], dtype="U9"),
-            white_rating_diff=np.empty([n], dtype=np.uint16),
-            black_rating_diff=np.empty([n], dtype=np.uint16),
-            termination=np.empty([n], dtype=np.uint8)
-        )
-
-def read_pgn(file_path: str):
-    BUFFER_SIZE = 5000
+def read_pgn_iter(file_path: str, player_map={}, opening_map={}):
     metadatas = []
-    buffer = ChessMetadata.with_preallocated_size(BUFFER_SIZE)
-    buffer_idx = 0
-    player_map = {}
-    opening_map = {}
+
+    moves = []
 
     def player_id(name):
-        if name not in player_map.keys():
+        if name not in player_map:
             player_map[name] = len(player_map)
         return player_map[name]
 
-    def opening_ids(opening_names, op_map=opening_map):
-        name = opening_names[0]
-        if name not in op_map.keys():
-            op_map[name] = (len(op_map), {})
-        val = op_map[name]
-        return val[0] + (opening_ids(name[1:], val[1]) if len(opening_names) > 1 else [])
-    
-    with open(file_path, 'r') as file:
-        game = pgn.read_game(file)
-        while game is not None:
-            buffer.white_id[buffer_idx] = player_id(game.headers["White"])
-            buffer.black_id[buffer_idx] = player_id(game.headers["Black"])
-            buffer.white_elo[buffer_idx] = int(game.headers["WhiteElo"])
-            buffer.black_elo[buffer_idx] = int(game.headers["BlackElo"])
-            result = game.headers["Result"]
-            buffer.result[buffer_idx] = -1 if result == "0-1" else 1 if result == "1-0" else 0
-            buffer.time_control[buffer_idx] = game.headers["TimeControl"]
-            buffer.white_rating_diff[buffer_idx] = game.headers["WhiteRatingDiff"]
-            buffer.black_rating_diff[buffer_idx] = game.headers["BlackRatingDiff"]
-            buffer.termination[buffer_idx] = TERMINATION_TO_ID[game.headers["Termination"]]
-            names = game.headers["Opening"].split(", ")
-            all_names = names[0].split(": ") + names[1:]
-            ids = opening_ids(all_names)
-            buffer.opening_ids[buffer_idx][:len(ids)] = ids
+    def opening_id(name, op_map=opening_map):
+        if name not in op_map:
+            op_map[name] = len(op_map)
+        return op_map[name]
 
-            buffer_idx += 1
-            if buffer_idx >= BUFFER_SIZE:
-                metadatas.append(buffer)
-                buffer = ChessMetadata.with_preallocated_size(BUFFER_SIZE)
-                buffer_idx = 0
+    def get_result(result: str):
+        return BLACK_WIN if result == "0-1" else DRAW if result == "1/2-1/2" else WHITE_WIN
+
+    with open(file_path, 'r') as file:
+        while True:
             game = pgn.read_game(file)
+            if game is None:
+                break
+
+            if WHITE_RATING_DIFF in game.headers:
+                white_diff = int(game.headers[WHITE_RATING_DIFF])
+            else:
+                white_diff = None
+            if BLACK_RATING_DIFF in game.headers:
+                black_diff = int(game.headers[BLACK_RATING_DIFF])
+            else:
+                black_diff = None
+
+            headers = game.headers
+            meta = ChessMetadata(
+                white_elo=int(headers[WHITE_ELO]),
+                white_id=player_id(headers[WHITE]),
+                black_elo=int(headers[BLACK_ELO]),
+                black_id=player_id(headers[BLACK]),
+                result=get_result(headers[RESULT]),
+                opening_id=opening_id(headers[OPENING]),
+                time_control=headers[TIME_CONTROL],
+                termination=headers[TERMINATION],
+                white_rating_diff=white_diff,
+                black_rating_diff=black_diff,
+            )
+
+            yield meta, list(move.uci() for move in game.mainline_moves())
 
 def download_weights():
     URL = "https://github.com/CallOn84/LeelaNets/raw/refs/heads/main/Nets/Maia%202200/maia-2200.pb.gz"
@@ -142,99 +113,171 @@ def download_weights():
                 f_out.write(f_in.read())
     return local_path[:-3]
 
-def reading_process_main(queue: mp.Queue, file_path: str):
-    with open(file_path) as file:
-        n_games = 0
-        game = pgn.read_game(file)
-        while game is not None:
-            queue.put(list(game.mainline_moves()))
-            n_games += 1
-            if n_games % 1000 == 0:
-                print(f"{n_games} games read")
-            game = pgn.read_game(file)
+def metadata_structured_array(data: list[ChessMetadata]):
+    n = len(data)
     
-    print("reader end")
-    queue.put("end")
+    dt = np.dtype([
+        (WHITE, np.uint32),
+        (BLACK, np.uint32),
+        (WHITE_ELO, np.uint16),
+        (BLACK_ELO, np.uint16),
+        (WHITE_RATING_DIFF, np.int16),
+        (BLACK_RATING_DIFF, np.int16),
+        (OPENING, np.uint32),
+        (TERMINATION, 'U21')
+    ])
 
-def states_from_moves(moves: list[chess.Move]):
-    no_history = []
-    with_history = []
-    board = chess.Board()
-    uci_moves = []
-    for move in moves:
-        board.push(move)
-        uci_moves.append(move.uci())
-        with_history.append(GameState(moves=uci_moves))
-        no_history.append(GameState(fen=board.fen()))
-    return with_history, no_history
+    result = np.zeros(n, dtype=dt)
 
-def write_prcess_main(output_queue: mp.Queue, metadata_queue: mp.Queue, out_file_path: str):
+    result[WHITE] = np.array(list(map(lambda meta: meta.white_id, data)))
+    result[BLACK] = np.array(list(map(lambda meta: meta.black_id, data)))
+    result[WHITE_ELO] = np.array(list(map(lambda meta: meta.white_elo, data)))
+    result[BLACK_ELO] = np.array(list(map(lambda meta: meta.black_elo, data)))
+    result[WHITE_RATING_DIFF] = np.array(list(map(lambda meta: meta.white_rating_diff or 0, data)))
+    result[BLACK_RATING_DIFF] = np.array(list(map(lambda meta: meta.black_rating_diff or 0, data)))
+    result[OPENING] = np.array(list(map(lambda meta: meta.opening_id, data)))
+    result[TERMINATION] = np.array(list(map(lambda meta: meta.termination, data)), dtype='U21')
+    
+    return result
+
+def write_process_main(output_queue: mp.Queue, metadata_queue: mp.Queue, out_file_path: str):
     out_file = h5py.File(out_file_path, "w")
-    dset_with = out_file.create_dataset("with_history", shape=[0, 0, 0, 0], dtype=float, chunks=True, maxshape=(None, 112, 8, 8))
-    dset_without = out_file.create_dataset("no_history", shape=[0, 0, 0, 0],  dtype=float, chunks=True, maxshape=(None, 112, 8, 8))
-    def append_file(model_out, dset: h5py.Dataset):
-        model_out = np.array(model_out)
-        dset.resize(dset.shape[0] + model_out.shape[0], axis=0)
-        dset[-model_out.shape[0]:] = model_out
+    dsets: dict[str, h5py.Dataset] = {}
+
+    # Board state datasets
+    dsets[LEELA_OUTPUT] = out_file.create_dataset(
+        LEELA_OUTPUT, shape=[0, *OUTPUT_SHAPE], dtype=np.float16, 
+        chunks=True, maxshape=(None, *INPUT_SHAPE)
+    )
+
+    # Metadata group and datasets
+    meta_group = out_file.create_group("metadata")
+    dsets[WHITE_ELO] = meta_group.create_dataset(
+        WHITE_ELO, shape=[0], dtype=int, 
+        chunks=True, maxshape=(None,)
+    )
+    dsets[BLACK_ELO] = meta_group.create_dataset(
+        BLACK_ELO, shape=[0], dtype=int, 
+        chunks=True, maxshape=(None,)
+    )
+    dsets[WHITE_RATING_DIFF] = meta_group.create_dataset(
+        WHITE_RATING_DIFF, shape=[0], dtype=int, 
+        chunks=True, maxshape=(None,)
+    )
+    dsets[BLACK_RATING_DIFF] = meta_group.create_dataset(
+        BLACK_RATING_DIFF, shape=[0], dtype=int, 
+        chunks=True, maxshape=(None,)
+    )
+    dsets[WHITE] = meta_group.create_dataset(
+        WHITE, shape=[0], dtype=int, 
+        chunks=True, maxshape=(None,)
+    )
+    dsets[BLACK] = meta_group.create_dataset(
+        BLACK, shape=[0], dtype=int, 
+        chunks=True, maxshape=(None,)
+    )
+    dsets[OPENING] = meta_group.create_dataset(
+        OPENING, shape=[0], dtype=int, 
+        chunks=True, maxshape=(None,)
+    )
+    dsets[TERMINATION] = meta_group.create_dataset(
+        TERMINATION, shape=[0], dtype=h5py.string_dtype(), 
+        chunks=True, maxshape=(None,)
+    )
+
+    def extend_dset(key: str, val: np.ndarray):
+        dset = dsets[key]
+        dset.resize(dset.shape[0] + val.shape[0], axis=0)
+        dset[-val.shape[0]:] = val
+
+    def process_meta(val):
+        data = metadata_structured_array(val)
+        for key in data.dtype.names: # type: ignore
+            extend_dset(key, data[key])
+
+    next_idx = 0
+    uninserted = {}
+    def process_model_out(val):
+        nonlocal next_idx
+        model_out, idx = val
+        model_out: np.ndarray
+        if idx == next_idx:
+            extend_dset(LEELA_OUTPUT, model_out)
+            next_idx += 1
+            while next_idx in uninserted:
+                extend_dset(*uninserted.pop(next_idx))
+                next_idx += 1
+
+    meta_done = False
+    model_outs_done = False
+    while True:
+        if not meta_done:
+            try:
+                meta = metadata_queue.get_nowait()
+            except Empty:
+                meta = None
+            if meta == "end":
+                meta_done = True
+            elif meta is not None:
+                process_meta(meta)
+                continue # only read from output queue if meta queue is empty
+
+        val = output_queue.get()
+        if val == "end":
+            model_outs_done = True
+        else:
+            process_model_out(val)
+        
+        if model_outs_done and meta_done:
+            break
 
     out_file.close()
+
+def prepare_inputs(games_moves: Iterable[list[str]], positions_per_game: int, no_history: bool = False):
+    all_inputs = []
+    state_to_arr = lambda state: np.array(
+            state.as_input_from_format(1).GetRawInputOnnx(), dtype=np.float32
+        ).reshape(*INPUT_SHAPE)
+
+    for game in games_moves:
+        board = bulletchess.Board()
+        uci_moves = []
+        game_inputs = []
+        move_idx = 0
+        if len(game) < positions_per_game:
+            continue
+        for move in game:
+            board.apply(bulletchess.Move.from_uci(move))
+            uci_moves.append(move)
+            if move_idx % (len(game) // positions_per_game) == 0:
+                if no_history:
+                    game_inputs.append(state_to_arr(GameState(fen=board.fen())))
+                else:
+                    game_inputs.append(state_to_arr(GameState(moves=uci_moves)))
+            move_idx += 1
+        all_inputs.append(np.array(game_inputs))
+
+    return np.concat(all_inputs)
+
+def prepare_inputs_main(moves_queue: mp.Queue, input_queue: mp.Queue, positions_per_game: int, no_history=False):
+    while True:
+        val = moves_queue.get()
+        if val == "end":
+             break
+        games, idx = val
+        input_queue.put((prepare_inputs(games, positions_per_game, no_history=no_history), idx))
 
 def computation_process_main(in_queue: mp.Queue, out_queue: mp.Queue, weights_path: str):
     ort_session = ort.InferenceSession(weights_path)
     output_name = ort_session.get_outputs()[0].name
     input_name = ort_session.get_inputs()[0].name
 
-    weights = Weights("weights/maia-2200.pb")
-    backend = Backend(weights, "random")
-    
-    inputs_with_history = []
-    inputs_no_history = []
-
-    moves = in_queue.get()
-    state_to_arr = lambda state: np.array(state.as_input(backend).GetRawInputOnnx(), dtype=np.float32).reshape(112, 8, 8)
-    positions_evaluated = 0
-    eval100000 = 0
-
-    while moves != "end":
-        with_history, no_history = states_from_moves(moves)
-        inputs_with_history.extend(map(state_to_arr, with_history))
-        inputs_no_history.extend(map(state_to_arr, no_history))
-
-        if (len(inputs_with_history) > BATCH_SIZE):
-            res_with = ort_session.run(
-                [output_name],
-                {input_name: np.stack(inputs_with_history)})
-            res_without = ort_session.run(
-                [output_name],
-                {input_name: np.stack(inputs_no_history)})
-            out_queue.put((res_with, res_without))
-            positions_evaluated += 2*len(inputs_with_history)
-
-            inputs_no_history.clear()
-            inputs_with_history.clear()
-
-        if positions_evaluated > 100_000:
-            eval100000 += 1
-            print(f"evaluated over {eval100000} * 1e5 postions")
-            positions_evaluated -= 100_000
-
-        moves = in_queue.get()
-
-
-def process_file(file_path: str):
-    fname = file_path.split("/")[-1][:-3]
-    queue = mp.Queue(maxsize=2*BATCH_SIZE)
-    reader = mp.Process(target=reading_process_main, args=[queue, file_path])
-    computer = mp.Process(target=computation_process_main, args=[queue, "weights/maia-2200-hidden.onnx", f"data/lc0-hidden/maia-2200/{fname}h5"])
-
-    reader.start()
-    computer.start()
-    computer.join()
-    reader.join()
-
-def main():
-    download_weights()
-    process_file("data/raw/lichess_elite_2025-11.pgn")
-
-if __name__ == "__main__":
-    main()
+    while True:
+        val = in_queue.get()
+        if val == "end":
+            break
+        inputs, idx = val
+        result = ort_session.run(
+            [output_name],
+            {input_name: inputs})
+        out_queue.put((result[0], idx))
