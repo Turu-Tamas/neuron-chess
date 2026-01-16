@@ -104,7 +104,8 @@ def metadata_structured_array(data: list[ChessMetadata]):
         (WHITE_RATING_DIFF, np.int16),
         (BLACK_RATING_DIFF, np.int16),
         (OPENING, np.uint32),
-        (TERMINATION, 'U21')
+        (TERMINATION, 'U21'),
+        (RESULT, np.int8)
     ])
 
     result = np.zeros(n, dtype=dt)
@@ -117,6 +118,7 @@ def metadata_structured_array(data: list[ChessMetadata]):
     result[BLACK_RATING_DIFF] = np.array(list(map(lambda meta: meta.black_rating_diff or 0, data)))
     result[OPENING] = np.array(list(map(lambda meta: meta.opening_id, data)))
     result[TERMINATION] = np.array(list(map(lambda meta: meta.termination, data)), dtype='U21')
+    result[RESULT] = np.array(list(map(lambda meta: meta.result, data)))
 
     return result
 
@@ -162,6 +164,10 @@ def write_process_main(output_queue: mp.Queue, metadata_queue: mp.Queue, out_fil
     )
     dsets[TERMINATION] = meta_group.create_dataset(
         TERMINATION, shape=[0], dtype=h5py.string_dtype(), 
+        chunks=True, maxshape=(None,), compression=compression
+    )
+    dsets[RESULT] = meta_group.create_dataset(
+        RESULT, shape=[0], dtype=int,
         chunks=True, maxshape=(None,), compression=compression
     )
 
@@ -246,7 +252,7 @@ def prepare_inputs_main(moves_queue: mp.Queue, input_queue: mp.Queue, positions_
     while True:
         val = moves_queue.get()
         if val == "end":
-             break
+            break
         games, idx = val
         input_queue.put((prepare_inputs(games, positions_per_game, no_history=no_history), idx))
 
