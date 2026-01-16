@@ -135,39 +135,39 @@ def write_process_main(output_queue: mp.Queue, metadata_queue: mp.Queue, out_fil
     # Metadata group and datasets
     meta_group = out_file.create_group("metadata")
     dsets[WHITE_ELO] = meta_group.create_dataset(
-        WHITE_ELO, shape=[0], dtype=int, 
+        WHITE_ELO, shape=[0], dtype=np.uint16, 
         chunks=True, maxshape=(None,), compression=compression
     )
     dsets[BLACK_ELO] = meta_group.create_dataset(
-        BLACK_ELO, shape=[0], dtype=int, 
+        BLACK_ELO, shape=[0], dtype=np.uint16, 
         chunks=True, maxshape=(None,), compression=compression
     )
     dsets[WHITE_RATING_DIFF] = meta_group.create_dataset(
-        WHITE_RATING_DIFF, shape=[0], dtype=int, 
+        WHITE_RATING_DIFF, shape=[0], dtype=np.int16, 
         chunks=True, maxshape=(None,), compression=compression
     )
     dsets[BLACK_RATING_DIFF] = meta_group.create_dataset(
-        BLACK_RATING_DIFF, shape=[0], dtype=int, 
+        BLACK_RATING_DIFF, shape=[0], dtype=np.int16, 
         chunks=True, maxshape=(None,), compression=compression
     )
     dsets[WHITE] = meta_group.create_dataset(
-        WHITE, shape=[0], dtype=int, 
+        WHITE, shape=[0], dtype=np.uint32, 
         chunks=True, maxshape=(None,), compression=compression
     )
     dsets[BLACK] = meta_group.create_dataset(
-        BLACK, shape=[0], dtype=int, 
+        BLACK, shape=[0], dtype=np.uint32, 
         chunks=True, maxshape=(None,), compression=compression
     )
     dsets[OPENING] = meta_group.create_dataset(
-        OPENING, shape=[0], dtype=int, 
+        OPENING, shape=[0], dtype=np.uint32, 
         chunks=True, maxshape=(None,), compression=compression
     )
     dsets[TERMINATION] = meta_group.create_dataset(
-        TERMINATION, shape=[0], dtype=h5py.string_dtype(), 
+        TERMINATION, shape=[0], dtype=h5py.string_dtype(encoding='utf-8', length=21), 
         chunks=True, maxshape=(None,), compression=compression
     )
     dsets[RESULT] = meta_group.create_dataset(
-        RESULT, shape=[0], dtype=int,
+        RESULT, shape=[0], dtype=np.int8,
         chunks=True, maxshape=(None,), compression=compression
     )
 

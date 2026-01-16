@@ -23,5 +23,6 @@ All metadata arrays are length N and aligned with `lc0_hidden`:
 | `BlackRatingDiff` | int16 | Black rating change |
 | `Opening` | uint32 | Opening ID |
 | `Termination` | string | Game end reason |
+| `Result` | uint8 | winner, -1 for black, 1 for white, 0 for draw |
 
 **Index alignment**: `lc0_hidden[i]` and all `metadata/*[i]` correspond to the same game.
