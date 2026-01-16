@@ -22,7 +22,7 @@ WHITE = "White"
 BLACK = "Black"
 LEELA_OUTPUT = "lc0_hidden"
 WHITE_RATING_DIFF = "WhiteRatingDiff"
-BLACK_RATING_DIFF = "BalckRatingDiff"
+BLACK_RATING_DIFF = "BlackRatingDiff"
 WHITE_ELO = "WhiteElo"
 BLACK_ELO = "BlackElo"
 RESULT = "Result"
@@ -127,7 +127,7 @@ def write_process_main(output_queue: mp.Queue, metadata_queue: mp.Queue, out_fil
     # Board state datasets
     dsets[LEELA_OUTPUT] = out_file.create_dataset(
         LEELA_OUTPUT, shape=[0, *OUTPUT_SHAPE], dtype=dtype, 
-        chunks=True, maxshape=(None, *INPUT_SHAPE), compression=compression
+        chunks=True, maxshape=(None, *OUTPUT_SHAPE), compression=compression
     )
 
     # Metadata group and datasets
@@ -187,6 +187,8 @@ def write_process_main(output_queue: mp.Queue, metadata_queue: mp.Queue, out_fil
             while next_idx in uninserted:
                 extend_dset(*uninserted.pop(next_idx))
                 next_idx += 1
+        else:
+            uninserted[idx] = (LEELA_OUTPUT, model_out)
 
     meta_done = False
     model_outs_done = False
@@ -224,8 +226,6 @@ def prepare_inputs(games_moves: Iterable[list[str]], positions_per_game: int, no
         uci_moves = []
         game_inputs = []
         move_idx = 0
-        if len(game) < positions_per_game:
-            continue
         for move in game:
             board.apply(bulletchess.Move.from_uci(move))
             uci_moves.append(move)
@@ -235,6 +235,9 @@ def prepare_inputs(games_moves: Iterable[list[str]], positions_per_game: int, no
                 else:
                     game_inputs.append(state_to_arr(GameState(moves=uci_moves)))
             move_idx += 1
+        if len(game) < positions_per_game:
+            print("Warning: one of the games is too short, padding it to fit the rest of the data.")
+            game_inputs += [np.zeros(*INPUT_SHAPE, dtype=np.float32)] * (positions_per_game - len(game_inputs))
         all_inputs.append(np.array(game_inputs))
 
     return np.concat(all_inputs)
