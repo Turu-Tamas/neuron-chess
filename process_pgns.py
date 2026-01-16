@@ -1,23 +1,14 @@
-import os
 import multiprocessing as mp
-import chess
-from lczero.backends import GameState, Input, Output, Weights, BackendCapabilities, Backend
+from lczero.backends import GameState
 import chess.pgn as pgn
-import urllib.request
-import gzip
 from dataclasses import dataclass
-import numpy as np
-from concurrent.futures import ProcessPoolExecutor, as_completed
 import numpy as np
 import onnxruntime as ort
 import h5py
-from functools import partial
-import sys
-import numpy.ma
 from typing import Optional, Iterable
 from queue import Empty
 import bulletchess
-from math import floor
+import threading
 
 INPUT_SHAPE = (112, 8, 8)
 OUTPUT_SHAPE = (64, 8, 8)
@@ -100,18 +91,7 @@ def read_pgn_iter(file_path: str, player_map={}, opening_map={}):
                 black_rating_diff=black_diff,
             )
 
-            yield meta, list(move.uci() for move in game.mainline_moves())
-
-def download_weights():
-    URL = "https://github.com/CallOn84/LeelaNets/raw/refs/heads/main/Nets/Maia%202200/maia-2200.pb.gz"
-    local_path = "weights/maia-2200.pb.gz"
-    if not os.path.exists(local_path):
-        urllib.request.urlretrieve(URL, local_path)
-    if not os.path.exists(local_path[:-3]):
-        with gzip.open(local_path, 'rb') as f_in:
-            with open(local_path[:-3], 'wb') as f_out:
-                f_out.write(f_in.read())
-    return local_path[:-3]
+            yield meta, [move.uci() for move in game.mainline_moves()]
 
 def metadata_structured_array(data: list[ChessMetadata]):
     n = len(data)
@@ -137,16 +117,16 @@ def metadata_structured_array(data: list[ChessMetadata]):
     result[BLACK_RATING_DIFF] = np.array(list(map(lambda meta: meta.black_rating_diff or 0, data)))
     result[OPENING] = np.array(list(map(lambda meta: meta.opening_id, data)))
     result[TERMINATION] = np.array(list(map(lambda meta: meta.termination, data)), dtype='U21')
-    
+
     return result
 
-def write_process_main(output_queue: mp.Queue, metadata_queue: mp.Queue, out_file_path: str):
+def write_process_main(output_queue: mp.Queue, metadata_queue: mp.Queue, out_file_path: str, dtype=np.float16):
     out_file = h5py.File(out_file_path, "w")
     dsets: dict[str, h5py.Dataset] = {}
 
     # Board state datasets
     dsets[LEELA_OUTPUT] = out_file.create_dataset(
-        LEELA_OUTPUT, shape=[0, *OUTPUT_SHAPE], dtype=np.float16, 
+        LEELA_OUTPUT, shape=[0, *OUTPUT_SHAPE], dtype=dtype, 
         chunks=True, maxshape=(None, *INPUT_SHAPE)
     )
 
