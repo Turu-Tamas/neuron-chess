@@ -8,6 +8,7 @@ dependencies = [
     "bulletchess>=0.4.0",
     "h5py>=3.15.1",
     "ipykernel>=7.1.0",
+    "lczero-bindings",
     "numpy>=2.4.1",
     "onnx>=1.20.1",
     "onnxruntime>=1.23.2",
@@ -15,3 +16,11 @@ dependencies = [
     "tensorflow>=2.20.0",
     "tqdm>=4.67.1",
 ]
+
+[tool.uv.workspace]
+members = [
+    "lc0",
+]
+
+[tool.uv.sources]
+lczero-bindings = { workspace = true }

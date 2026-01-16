@@ -2,6 +2,12 @@ version = 1
 revision = 3
 requires-python = "==3.13.11"
 
+[manifest]
+members = [
+    "lczero-bindings",
+    "neuron-chess",
+]
+
 [[package]]
 name = "absl-py"
 version = "2.3.1"
@@ -385,6 +391,11 @@ wheels = [
 ]
 
 [[package]]
+name = "lczero-bindings"
+version = "0.1.0"
+source = { editable = "lc0" }
+
+[[package]]
 name = "libclang"
 version = "18.1.1"
 source = { registry = "https://pypi.org/simple" }
@@ -529,6 +540,7 @@ dependencies = [
     { name = "bulletchess" },
     { name = "h5py" },
     { name = "ipykernel" },
+    { name = "lczero-bindings" },
     { name = "numpy" },
     { name = "onnx" },
     { name = "onnxruntime" },
@@ -542,6 +554,7 @@ requires-dist = [
     { name = "bulletchess", specifier = ">=0.4.0" },
     { name = "h5py", specifier = ">=3.15.1" },
     { name = "ipykernel", specifier = ">=7.1.0" },
+    { name = "lczero-bindings", editable = "lc0" },
     { name = "numpy", specifier = ">=2.4.1" },
     { name = "onnx", specifier = ">=1.20.1" },
     { name = "onnxruntime", specifier = ">=1.23.2" },

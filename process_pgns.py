@@ -8,7 +8,6 @@ import h5py
 from typing import Optional, Iterable
 from queue import Empty
 import bulletchess
-import threading
 
 INPUT_SHAPE = (112, 8, 8)
 OUTPUT_SHAPE = (64, 8, 8)
