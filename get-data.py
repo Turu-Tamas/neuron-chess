@@ -87,35 +87,33 @@ def main():
     parser = argparse.ArgumentParser(description="Download and process chess games with neural network")
     parser.add_argument("--num-games", type=int, default=1000, help="Number of games to process")
     parser.add_argument("--positions-per-game", type=int, default=10, help="Number of positions to extract per game")
+    parser.add_argument("--min-plies", type=int, default=None, help="Minimum number of plies per game (defaults to positions-per-game)")
     parser.add_argument("--with-history", action="store_true", help="Include move history in inputs")
     parser.add_argument("--output-dtype", type=str, default="float16", choices=["float16", "float32"], help="Data type for output")
     parser.add_argument("--num-processes", type=int, default=8, help="Total number of worker processes")
     parser.add_argument("--date", type=str, default="2025-11", help="Date for PGN download (format: YYYY-MM)")
-    parser.add_argument("--skip-download", action="store_true", help="Skip downloading PGN and preparing weights")
     parser.add_argument("--input-file", type=str, help="Input PGN file (auto-determined if not specified)")
     parser.add_argument("--output-file", type=str, default="data/lc0-hidden/lichess_elite_2025-11.h5", help="Output HDF5 file")
     parser.add_argument("--compression", type=str, default=None, choices=[None, "gzip", "lzf"], help="Compression algorithm for HDF5 datasets (gzip or lzf)")
 
     args = parser.parse_args()
     
-    # Download and prepare if needed
-    if not args.skip_download:
-        print("=" * 60)
-        print("Preparing model weights...")
-        print("=" * 60)
-        download_and_prepare_weights()
-        
-        print("\n" + "=" * 60)
-        print("Downloading PGN file...")
-        print("=" * 60)
-        pgn_file = download_and_extract_pgn(args.date)
-    else:
-        if args.input_file is None:
-            pgn_file = f"data/raw/lichess_elite_{args.date}.pgn"
-        else:
-            pgn_file = args.input_file
+    # Set min_plies to positions_per_game if not specified
+    if args.min_plies is None:
+        args.min_plies = args.positions_per_game
     
-    # Use provided input file or the downloaded one
+    # Download and prepare weights and PGN
+    print("=" * 60)
+    print("Preparing model weights...")
+    print("=" * 60)
+    download_and_prepare_weights()
+    
+    print("\n" + "=" * 60)
+    print("Downloading PGN file...")
+    print("=" * 60)
+    pgn_file = download_and_extract_pgn(args.date)
+    
+    # Use provided input file if specified
     if args.input_file is not None:
         pgn_file = args.input_file
 
@@ -133,6 +131,7 @@ def main():
     print(f"  Output file: {args.output_file}")
     print(f"  Num games: {args.num_games}")
     print(f"  Positions per game: {args.positions_per_game}")
+    print(f"  Min plies: {args.min_plies}")
     print(f"  With history: {args.with_history}")
     print(f"  Output dtype: {args.output_dtype}")
     print(f"  Total processes: {args.num_processes}")
@@ -180,7 +179,7 @@ def main():
     writer.start()
 
     # Process games
-    moves_iter = batched(read_pgn_iter(pgn_file), 100)
+    moves_iter = batched(read_pgn_iter(pgn_file, min_plies=args.min_plies), 100)
     with tqdm(total=args.num_games, desc="Processing games") as pbar:
         for idx, games in enumerate(moves_iter):
             meta, moves = zip(*games)

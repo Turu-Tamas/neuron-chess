@@ -44,7 +44,7 @@ class ChessMetadata:
     black_rating_diff: Optional[int]
     termination: str
 
-def read_pgn_iter(file_path: str, player_map={}, opening_map={}):
+def read_pgn_iter(file_path: str, min_plies: int = 10, player_map={}, opening_map={}):
     metadatas = []
 
     moves = []
@@ -67,6 +67,12 @@ def read_pgn_iter(file_path: str, player_map={}, opening_map={}):
             game = pgn.read_game(file)
             if game is None:
                 break
+
+            game_moves = [move.uci() for move in game.mainline_moves()]
+            
+            # Skip games with fewer plies than minimum
+            if len(game_moves) < min_plies:
+                continue
 
             if WHITE_RATING_DIFF in game.headers:
                 white_diff = int(game.headers[WHITE_RATING_DIFF])
@@ -91,7 +97,7 @@ def read_pgn_iter(file_path: str, player_map={}, opening_map={}):
                 black_rating_diff=black_diff,
             )
 
-            yield meta, [move.uci() for move in game.mainline_moves()]
+            yield meta, game_moves
 
 def metadata_structured_array(data: list[ChessMetadata]):
     n = len(data)
@@ -163,7 +169,7 @@ def write_process_main(output_queue: mp.Queue, metadata_queue: mp.Queue, out_fil
         chunks=True, maxshape=(None,), compression=compression
     )
     dsets[TERMINATION] = meta_group.create_dataset(
-        TERMINATION, shape=[0], dtype=h5py.string_dtype(encoding='utf-8', length=21), 
+        TERMINATION, shape=[0], dtype=h5py.string_dtype(),
         chunks=True, maxshape=(None,), compression=compression
     )
     dsets[RESULT] = meta_group.create_dataset(
@@ -228,6 +234,8 @@ def prepare_inputs(games_moves: Iterable[list[str]], positions_per_game: int, no
         ).reshape(*INPUT_SHAPE)
 
     for game in games_moves:
+        if len(game) < positions_per_game:
+            print("Warning: one of the games is too short, padding it to fit the rest of the data.")
         board = bulletchess.Board()
         uci_moves = []
         game_inputs = []
@@ -235,7 +243,7 @@ def prepare_inputs(games_moves: Iterable[list[str]], positions_per_game: int, no
         for move in game:
             board.apply(bulletchess.Move.from_uci(move))
             uci_moves.append(move)
-            if move_idx % (len(game) // positions_per_game) == 0:
+            if len(game) < positions_per_game or move_idx % (len(game) // positions_per_game) == 0:
                 if no_history:
                     game_inputs.append(state_to_arr(GameState(fen=board.fen())))
                 else:
@@ -243,7 +251,7 @@ def prepare_inputs(games_moves: Iterable[list[str]], positions_per_game: int, no
             move_idx += 1
         if len(game) < positions_per_game:
             print("Warning: one of the games is too short, padding it to fit the rest of the data.")
-            game_inputs += [np.zeros(*INPUT_SHAPE, dtype=np.float32)] * (positions_per_game - len(game_inputs))
+            game_inputs += [np.zeros(INPUT_SHAPE, dtype=np.float32)] * (positions_per_game - len(game_inputs))
         all_inputs.append(np.array(game_inputs))
 
     return np.concat(all_inputs)
