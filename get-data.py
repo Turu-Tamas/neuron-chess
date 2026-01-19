@@ -97,10 +97,12 @@ def main():
     parser.add_argument("--compression", type=str, default=None, choices=[None, "gzip", "lzf"], help="Compression algorithm for HDF5 datasets (gzip or lzf)")
 
     args = parser.parse_args()
-    
+
     # Set min_plies to positions_per_game if not specified
     if args.min_plies is None:
         args.min_plies = args.positions_per_game
+    else:
+        args.min_plies = min(args.min_plies, args.positions_per_game)
     
     # Download and prepare weights and PGN
     print("=" * 60)
@@ -179,15 +181,26 @@ def main():
     writer.start()
 
     # Process games
+    limit_reached = False
     moves_iter = batched(read_pgn_iter(pgn_file, min_plies=args.min_plies), 100)
+    games_processed = 0
     with tqdm(total=args.num_games, desc="Processing games") as pbar:
         for idx, games in enumerate(moves_iter):
             meta, moves = zip(*games)
-            if idx > args.num_games:
+
+            num_to_process = min(len(games), args.num_games - games_processed)
+            if num_to_process <= 0:
+                limit_reached = True
                 break
+            meta = meta[:num_to_process]
+            moves = moves[:num_to_process]
             metadata_queue.put(meta)
             moves_queue.put((moves, idx))
-            pbar.update(1)
+            games_processed += num_to_process
+            pbar.update(num_to_process)
+
+    if not limit_reached:
+        print("All games read from file.")
 
     metadata_queue.put("end")
 

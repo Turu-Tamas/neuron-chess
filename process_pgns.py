@@ -233,24 +233,22 @@ def prepare_inputs(games_moves: Iterable[list[str]], positions_per_game: int, no
         ).reshape(*INPUT_SHAPE)
 
     for game in games_moves:
-        if len(game) < positions_per_game:
-            print("Warning: one of the games is too short, padding it to fit the rest of the data.")
         board = bulletchess.Board()
         uci_moves = []
         game_inputs = []
         move_idx = 0
+        first_idx = len(game) % positions_per_game # (len(game) - first_idx) divisible by positions_per_game
+        d = (len(game) - first_idx) // positions_per_game # distance between inputs
         for move in game:
             board.apply(bulletchess.Move.from_uci(move))
             uci_moves.append(move)
-            if len(game) < positions_per_game or move_idx % (len(game) // positions_per_game) == 0:
+            if len(game) <= positions_per_game or move_idx == first_idx + d * len(game_inputs):
                 if no_history:
                     game_inputs.append(state_to_arr(GameState(fen=board.fen())))
                 else:
                     game_inputs.append(state_to_arr(GameState(moves=uci_moves)))
             move_idx += 1
-        if len(game) < positions_per_game:
-            print("Warning: one of the games is too short, padding it to fit the rest of the data.")
-            game_inputs += [np.zeros(INPUT_SHAPE, dtype=np.float32)] * (positions_per_game - len(game_inputs))
+        assert len(game_inputs) == positions_per_game, f"expected {positions_per_game} positions, have {len(game_inputs)}; {d}, {first_idx}"
         all_inputs.append(np.array(game_inputs))
 
     return np.concat(all_inputs)
