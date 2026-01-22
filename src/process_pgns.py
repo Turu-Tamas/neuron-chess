@@ -1,5 +1,5 @@
 import multiprocessing as mp
-from lczero.backends import GameState
+from lczero.backends import GameState # type: ignore
 import chess.pgn as pgn
 from dataclasses import dataclass
 import numpy as np
