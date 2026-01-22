@@ -38,22 +38,6 @@ class ChessTrainingModule(L.LightningModule):
         loss = multi_positive_loss(embeddings, group_size=POSITIONS_PER_GAME, temperature=TEMPERATURE)
         self.log("val_loss", loss, on_epoch=True, prog_bar=True)
 
-    def _embedding_project(self, viz_states_flat):
-        # GENERATING EMBEDDINGS & T-SNE
-        def get_embeddings_and_tsne(model, inputs):
-            with torch.no_grad():
-                embeddings = model(inputs).numpy()
-
-            # perplexity: a szomszédság mérete, kis adathoz kisebb érték kell
-            tsne = TSNE(n_components=2, random_state=42, perplexity=10, max_iter=1000)
-            embeddings_2d = tsne.fit_transform(embeddings)
-            return embeddings_2d
-
-        emb_untrained_2d = get_embeddings_and_tsne(self.model_untrained, viz_states_flat)
-
-        emb_trained_2d = get_embeddings_and_tsne(self, viz_states_flat)
-        return emb_trained_2d, emb_untrained_2d
-
 def main():
     torch.set_float32_matmul_precision('medium')
     seed_everything(RANDOM_SEED)
