@@ -15,17 +15,17 @@ FILE_PATH = "../data/lc0-hidden/lichess_elite_2025-11.h5"
 CHECKPOINT_PATH = '../lightning_logs/version_19/checkpoints/epoch=2-step=51428.ckpt' 
 MODEL_PATH = '../weights/v13_temp0.07_emb32.pt'
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-BATCH_SIZE_VIZ = 6 # Hány játékot vizualizáljunk összesen? (1 anchor + 5 negatív)
+VISUALIZATION_GAME_COUNT = 6 # Hány játékot vizualizáljunk összesen? (1 anchor + 5 negatív)
 
 print(f"Vizualizáció előkészítése {DEVICE} eszközön...")
 
 _, _, loader_viz = make_dloaders(FILE_PATH)
-viz_states_batch = next(iter(loader_viz))[:BATCH_SIZE_VIZ]
+viz_states_batch = next(iter(loader_viz))[:VISUALIZATION_GAME_COUNT]
 # Kilapítjuk: [6, 10, 64, 8, 8] -> [60, 64, 8, 8]
 viz_states_flat = viz_states_batch.view(-1, *INPUT_SIZE).to(DEVICE)
 
 # Az első 10 pont a "Game 0" (Anchor), a következő 10 a "Game 1", stb.
-labels = np.repeat(np.arange(BATCH_SIZE_VIZ), 10)
+labels = np.repeat(np.arange(VISUALIZATION_GAME_COUNT), 10)
 colors = ['red' if l == 0 else 'blue' if l == 1 else 'gray' for l in labels]
 sizes = [100 if l == 0 else 50 if l == 1 else 20 for l in labels]
 alphas = [1.0 if l == 0 else 0.7 if l == 1 else 0.3 for l in labels]

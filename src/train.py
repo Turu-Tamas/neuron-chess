@@ -11,7 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
 import seaborn as sns
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from tensorboard.plugins import projector
 
 class ChessTrainingModule(L.LightningModule):
     def __init__(self, *args, **kwargs):
@@ -38,6 +38,25 @@ class ChessTrainingModule(L.LightningModule):
         loss = multi_positive_loss(embeddings, group_size=POSITIONS_PER_GAME, temperature=TEMPERATURE)
         self.log("val_loss", loss, on_epoch=True, prog_bar=True)
 
+    def on_test_start(self):
+        self.test_embeddings = []
+
+    def test_step(self, batch):
+        embeddings = self(batch)
+        self.test_embeddings.append(embeddings)
+        loss = multi_positive_loss(embeddings, POSITIONS_PER_GAME, TEMPERATURE)
+        self.log("test_loss", loss, on_step=False, on_epoch=True)
+
+    def on_test_end(self):
+        embeddings_tensor = torch.cat(self.test_embeddings)[:POSITIONS_PER_GAME * VISUALIZATION_GAME_COUNT]
+        writer = self.logger.experiment
+        writer.add_embedding(
+            mat=embeddings_tensor,
+            metadata=np.repeat(np.arange(len(embeddings_tensor) // POSITIONS_PER_GAME), POSITIONS_PER_GAME),
+            tag="test_embeddings"
+        )
+        self.test_embeddings.clear()
+
 def main():
     torch.set_float32_matmul_precision('medium')
     seed_everything(RANDOM_SEED)
@@ -53,7 +72,7 @@ def main():
     trainer.fit(
         module, train_dataloaders=train_loader, val_dataloaders=val_loader,
     )
-    # trainer.test(module, test_loader)
-    
+    trainer.test()
+
 if __name__ == "__main__":
     main()

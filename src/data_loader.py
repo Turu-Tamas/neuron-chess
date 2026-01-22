@@ -28,18 +28,11 @@ class ChessHiddenStateDataset(Dataset):
 
         return torch.from_numpy(state).float() 
 
-def make_dloaders(file_path=DATA_FILE):
-
-    batch_size_in_games = BATCH_GAMES
-    val_data_ratio = VAL_RATIO
-    test_data_ratio = TEST_RATIO
-    dataset = ChessHiddenStateDataset(file_path)
-
-    dataset_size = len(dataset)
+def get_set_indices(dataset_size):
     indices = list(range(dataset_size))
 
-    val_split = int(np.floor(val_data_ratio * dataset_size)) 
-    test_split = int(np.floor(test_data_ratio * dataset_size)) 
+    val_split = int(np.floor(VAL_RATIO * dataset_size)) 
+    test_split = int(np.floor(TEST_RATIO * dataset_size)) 
 
     np.random.seed(42)
     np.random.shuffle(indices)
@@ -47,21 +40,26 @@ def make_dloaders(file_path=DATA_FILE):
     test_indices = indices[:test_split]
     val_indices = indices[test_split : test_split + val_split]
     train_indices = indices[test_split + val_split :]
+    return train_indices, val_indices, test_indices
+
+def make_dloaders(file_path=DATA_FILE):
+    dataset = ChessHiddenStateDataset(file_path)
+    train_indices, val_indices, test_indices = get_set_indices(len(dataset))
 
     train_dataset = Subset(dataset, train_indices)
     val_dataset   = Subset(dataset, val_indices)
     test_dataset  = Subset(dataset, test_indices)
 
-    train_loader = DataLoader(train_dataset, batch_size=batch_size_in_games,
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_GAMES,
                             shuffle=True, num_workers=DLOADER_WORKERS, pin_memory=True, drop_last=True)
 
-    val_loader   = DataLoader(val_dataset, batch_size=batch_size_in_games, 
+    val_loader   = DataLoader(val_dataset, batch_size=BATCH_GAMES, 
                             shuffle=False, num_workers=DLOADER_WORKERS, pin_memory=True, drop_last=True)
 
-    test_loader  = DataLoader(test_dataset, batch_size=batch_size_in_games, 
+    test_loader  = DataLoader(test_dataset, batch_size=BATCH_GAMES, 
                             shuffle=False, num_workers=DLOADER_WORKERS, pin_memory=True, drop_last=True)
 
-    print(f"Összes játék:  {dataset_size}")
+    print(f"Összes játék:  {len(dataset)}")
     print(f"Tanító:  {len(train_dataset)}")
     print(f"Validációs: {len(val_dataset)}")
     print(f"Teszt:     {len(test_dataset)}")
