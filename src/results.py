@@ -9,10 +9,11 @@ from torch.utils.data import DataLoader
 from data_loader import make_dloaders
 from model import ChessEncoder
 from consts import *
-from train import ChessTrainingModule
+
 #%%
 FILE_PATH = "../data/lc0-hidden/lichess_elite_2025-11.h5"
 CHECKPOINT_PATH = '../lightning_logs/version_19/checkpoints/epoch=2-step=51428.ckpt' 
+MODEL_PATH = '../weights/v13_temp0.07_emb32.pt'
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE_VIZ = 6 # Hány játékot vizualizáljunk összesen? (1 anchor + 5 negatív)
 
@@ -34,11 +35,12 @@ model_untrained = ChessEncoder(embedding_dim=ENCODER_EMBEDDING_DIM).to(DEVICE)
 model_untrained.eval()
 
 # B) Betanított modell (betöltjük a súlyokat)
+model_trained = ChessEncoder(embedding_dim=128).to(DEVICE)
 try:
-    model_trained = ChessTrainingModule.load_from_checkpoint(CHECKPOINT_PATH).to(DEVICE)
+    model_trained.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
     print("Betanított modell súlyai sikeresen betöltve.")
 except FileNotFoundError:
-    print(f"HIBA: Nem találom a {CHECKPOINT_PATH} fájlt! Fuss le a tanítást előbb.")
+    print(f"HIBA: Nem találom a {MODEL_PATH} fájlt! Fuss le a tanítást előbb.")
 model_trained.eval()
 #%%
 
