@@ -37,7 +37,7 @@ class ChessMetadata:
     black_elo: int
     result: int
     # openings have subtypes, primary type is first, subtypes after
-    opening_id: int
+    opening_name: str
     time_control: str
     white_rating_diff: Optional[int]
     black_rating_diff: Optional[int]
@@ -53,10 +53,10 @@ def read_pgn_iter(file_path: str, min_plies: int = 10, player_map={}, opening_ma
             player_map[name] = len(player_map)
         return player_map[name]
 
-    def opening_id(name, op_map=opening_map):
+    '''def opening_id(name, op_map=opening_map):
         if name not in op_map:
             op_map[name] = len(op_map)
-        return op_map[name]
+        return op_map[name]'''
 
     def get_result(result: str):
         return BLACK_WIN if result == "0-1" else DRAW if result == "1/2-1/2" else WHITE_WIN
@@ -89,7 +89,7 @@ def read_pgn_iter(file_path: str, min_plies: int = 10, player_map={}, opening_ma
                 black_elo=int(headers[BLACK_ELO]),
                 black_id=player_id(headers[BLACK]),
                 result=get_result(headers[RESULT]),
-                opening_id=opening_id(headers[OPENING]),
+                opening_name=headers[OPENING],
                 time_control=headers[TIME_CONTROL],
                 termination=headers[TERMINATION],
                 white_rating_diff=white_diff,
@@ -108,7 +108,7 @@ def metadata_structured_array(data: list[ChessMetadata]):
         (BLACK_ELO, np.uint16),
         (WHITE_RATING_DIFF, np.int16),
         (BLACK_RATING_DIFF, np.int16),
-        (OPENING, np.uint32),
+        (OPENING, 'U100'),
         (TERMINATION, 'U21'),
         (RESULT, np.int8)
     ])
@@ -121,7 +121,7 @@ def metadata_structured_array(data: list[ChessMetadata]):
     result[BLACK_ELO] = np.array(list(map(lambda meta: meta.black_elo, data)))
     result[WHITE_RATING_DIFF] = np.array(list(map(lambda meta: meta.white_rating_diff or 0, data)))
     result[BLACK_RATING_DIFF] = np.array(list(map(lambda meta: meta.black_rating_diff or 0, data)))
-    result[OPENING] = np.array(list(map(lambda meta: meta.opening_id, data)))
+    result[OPENING] = np.array(list(map(lambda meta: meta.opening_name, data)))
     result[TERMINATION] = np.array(list(map(lambda meta: meta.termination, data)), dtype='U21')
     result[RESULT] = np.array(list(map(lambda meta: meta.result, data)))
 
@@ -164,7 +164,7 @@ def write_process_main(output_queue: mp.Queue, metadata_queue: mp.Queue, out_fil
         chunks=True, maxshape=(None,), compression=compression
     )
     dsets[OPENING] = meta_group.create_dataset(
-        OPENING, shape=[0], dtype=np.uint32, 
+        OPENING, shape=[0], dtype=h5py.string_dtype(),
         chunks=True, maxshape=(None,), compression=compression
     )
     dsets[TERMINATION] = meta_group.create_dataset(
