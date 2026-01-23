@@ -25,7 +25,7 @@ def main():
     train_loader, val_loader, test_loader = make_dloaders()
 
     module = ChessTrainingModule()
-    module.model = torch.load("weights/v13_temp0.07_emb32.pt", weights_only=False)
+    module.model = torch.load("weights/v13_temp0.07_emb32.pt", weights_only=False, map_location=device)
     trainer = L.Trainer(
         accelerator=device,
     )
