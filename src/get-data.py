@@ -63,7 +63,7 @@ def download_and_prepare_weights(weights_dir: str = "weights"):
     # Convert to ONNX using lc0
     print(f"Converting {pb_path} to ONNX...")
     if not os.path.exists(onnx_path):
-        subprocess.run(["lc0", "leela2onnx", f"--input={pb_path}", f"--output={onnx_path}"], check=True)
+        subprocess.run(["lc0/build/release/lc0", "leela2onnx", f"--input={pb_path}", f"--output={onnx_path}"], check=True)
         print(f"Converted to {onnx_path}")
     else:
         print(f"{onnx_path} already exists, skipping conversion")
