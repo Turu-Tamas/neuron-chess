@@ -12,7 +12,7 @@ class ChessHiddenStateDataset(Dataset):
             self.total_positions = f['lc0_hidden'].shape[0]
             self.num_games = self.total_positions // POSITIONS_PER_GAME
             assert self.total_positions % POSITIONS_PER_GAME == 0
-            print(f"Adatok: {self.total_positions} állás, ami {self.num_games} teljes játék.")
+            print(f"Positions: {self.total_positions}, number of games: {self.num_games}")
 
         self.archive = None
 
@@ -59,10 +59,10 @@ def make_dloaders(file_path=DATA_FILE):
     test_loader  = DataLoader(test_dataset, batch_size=BATCH_GAMES, 
                             shuffle=False, num_workers=DLOADER_WORKERS, pin_memory=True, drop_last=True)
 
-    print(f"Összes játék:  {len(dataset)}")
-    print(f"Tanító:  {len(train_dataset)}")
-    print(f"Validációs: {len(val_dataset)}")
-    print(f"Teszt:     {len(test_dataset)}")
+    print(f"All:  {len(dataset)}")
+    print(f"Train set:  {len(train_dataset)}")
+    print(f"Validation set: {len(val_dataset)}")
+    print(f"Test set:     {len(test_dataset)}")
 
     return train_loader, val_loader, test_loader
 
