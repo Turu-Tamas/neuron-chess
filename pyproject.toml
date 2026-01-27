@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = "==3.13.11"
 dependencies = [
+    "anywidget>=0.9.21",
     "argparse>=1.4.0",
     "bulletchess>=0.4.0",
     "chess>=1.11.2",
@@ -18,6 +19,7 @@ dependencies = [
     "onnx>=1.20.1",
     "onnxruntime>=1.23.2",
     "pip>=25.3",
+    "plotly>=6.5.2",
     "scikit-learn>=1.8.0",
     "seaborn>=0.13.2",
     "tensorboardx>=2.6.4",
@@ -27,9 +29,16 @@ dependencies = [
 ]
 
 [tool.uv.workspace]
-members = [
-    "lc0",
-]
+members = ["lc0"]
 
 [tool.uv.sources]
 lczero-bindings = { workspace = true }
+
+[build-system]
+requires = [
+    "setuptools",
+    "wheel",
+    "pybind11",
+    "ninja",
+]
+build-backend = "setuptools.build_meta"
