@@ -1,5 +1,4 @@
 # %%
-# VISUALIZATION
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -15,26 +14,24 @@ FILE_PATH = "../data/lc0-hidden/lichess_elite_2025-11.h5"
 CHECKPOINT_PATH = '../lightning_logs/version_19/checkpoints/epoch=2-step=51428.ckpt' 
 MODEL_PATH = '../weights/v13_temp0.07_emb32.pt'
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-VISUALIZATION_GAME_COUNT = 6 # Hány játékot vizualizáljunk összesen? (1 anchor + 5 negatív)
-
-print(f"Vizualizáció előkészítése {DEVICE} eszközön...")
+VISUALIZATION_GAME_COUNT = 6 
 
 _, _, loader_viz = make_dloaders(FILE_PATH)
 viz_states_batch = next(iter(loader_viz))[:VISUALIZATION_GAME_COUNT]
-# Kilapítjuk: [6, 10, 64, 8, 8] -> [60, 64, 8, 8]
+# [6, 10, 64, 8, 8] -> [60, 64, 8, 8]
 viz_states_flat = viz_states_batch.view(-1, *INPUT_SIZE).to(DEVICE)
 
-# Az első 10 pont a "Game 0" (Anchor), a következő 10 a "Game 1", stb.
+# az elso 10 pont a 0-as label, a kovetkezo 10 az 1-es label...
 labels = np.repeat(np.arange(VISUALIZATION_GAME_COUNT), 10)
 colors = ['red' if l == 0 else 'blue' if l == 1 else 'gray' for l in labels]
 sizes = [100 if l == 0 else 50 if l == 1 else 20 for l in labels]
 alphas = [1.0 if l == 0 else 0.7 if l == 1 else 0.3 for l in labels]
 
-# A) Tanítatlan modell (véletlen súlyokkal)
+# tanitatlan modell veletlen sulyokkal
 model_untrained = ChessEncoder(embedding_dim=ENCODER_EMBEDDING_DIM).to(DEVICE)
 model_untrained.eval()
 
-# B) Betanított modell (betöltjük a súlyokat)
+# betanitott modell
 model_trained = ChessEncoder(embedding_dim=128).to(DEVICE)
 try:
     model_trained.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
@@ -49,7 +46,6 @@ def get_embeddings_and_tsne(model, inputs):
     with torch.no_grad():
         embeddings = model(inputs).cpu().numpy()
     
-    # perplexity: a szomszédság mérete, kis adathoz kisebb érték kell
     tsne = TSNE(n_components=2, random_state=RANDOM_SEED, perplexity=POSITIONS_PER_GAME, max_iter=1000)
     embeddings_2d = tsne.fit_transform(embeddings)
     return embeddings_2d
@@ -76,9 +72,9 @@ def plot_embeddings(embeddings_2d, title, ax):
     
     from matplotlib.lines import Line2D
     legend_elements = [
-        Line2D([0], [0], marker='o', color='w', label='Anchor Játék (Pozitívok)', markerfacecolor='red', markersize=10),
-        Line2D([0], [0], marker='o', color='w', label='Negatív Játék 1', markerfacecolor='blue', markersize=8),
-        Line2D([0], [0], marker='o', color='w', label='Többi Negatív', markerfacecolor='gray', markersize=6),
+        Line2D([0], [0], marker='o', color='w', label='Anchor játék (Pozitívak)', markerfacecolor='red', markersize=10),
+        Line2D([0], [0], marker='o', color='w', label='Negatív játék 1', markerfacecolor='blue', markersize=8),
+        Line2D([0], [0], marker='o', color='w', label='Többi negatív', markerfacecolor='gray', markersize=6),
     ]
     ax.legend(handles=legend_elements, loc='best')
 
