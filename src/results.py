@@ -10,7 +10,7 @@ from model import ChessEncoder
 from consts import *
 
 #%%
-FILE_PATH = "../data/lc0-hidden/lichess_elite_2025-11.h5"
+FILE_PATH = "../data/lc0-hidden/lichess_elite_2025-09.h5"
 CHECKPOINT_PATH = '../lightning_logs/version_19/checkpoints/epoch=2-step=51428.ckpt' 
 MODEL_PATH = '../weights/v13_temp0.07_emb32.pt'
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -32,12 +32,12 @@ model_untrained = ChessEncoder(embedding_dim=ENCODER_EMBEDDING_DIM).to(DEVICE)
 model_untrained.eval()
 
 # betanitott modell
-model_trained = ChessEncoder(embedding_dim=128).to(DEVICE)
 try:
-    model_trained.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+    model_trained = torch.load(MODEL_PATH, map_location=DEVICE, weights_only=False)
     print("Betanított modell súlyai sikeresen betöltve.")
-except FileNotFoundError:
+except FileNotFoundError as e:
     print(f"HIBA: Nem találom a {MODEL_PATH} fájlt! Fuss le a tanítást előbb.")
+    raise e
 model_trained.eval()
 #%%
 
