@@ -1,28 +1,9 @@
-# Neuron Chess
+# Chess Encoder
 
-Processes chess games from PGN files and generates neural network training data using Leela Chess Zero.
+In this project, we created an encoder mapping chess boards to a learned representation.
+We used Leela chess zero (a neural network chess engine) as a feature extractor and
+trained a small network on top of that with contrastive learning to map boards from
+within a game to similar embeddings and boards from different games to different representations.
 
-## Data File Format
-
-**Location**: `data/lc0-hidden/lichess_elite_2025-11.h5` (HDF5 format)
-
-### Root Dataset
-- **`lc0_hidden`**: Board states (shape: N×64×8×8, dtype: float16)
-  - Leela Chess Zero hidden layer outputs for each game position
-
-### Metadata Group (`/metadata/`)
-All metadata arrays are length N and aligned with `lc0_hidden`:
-
-| Dataset | Type | Description |
-|---------|------|-------------|
-| `White` | uint32 | Player ID for white |
-| `Black` | uint32 | Player ID for black |
-| `WhiteElo` | uint16 | White player rating |
-| `BlackElo` | uint16 | Black player rating |
-| `WhiteRatingDiff` | int16 | White rating change |
-| `BlackRatingDiff` | int16 | Black rating change |
-| `Opening` | uint32 | Opening ID |
-| `Termination` | string | Game end reason |
-| `Result` | uint8 | winner, -1 for black, 1 for white, 0 for draw |
-
-**Index alignment**: `lc0_hidden[i]` and all `metadata/*[i]` correspond to the same game.
+These are t-SNE projections of the embeddings of 10 boards sampled from 10 different games.
+<img width="870" height="470" alt="image" src="https://github.com/user-attachments/assets/cb112f39-4722-4949-9304-41ea94e51b14" />
