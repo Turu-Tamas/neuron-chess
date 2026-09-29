@@ -6,4 +6,4 @@ trained a small network on top of that with contrastive learning to map boards f
 within a game to similar embeddings and boards from different games to different representations.
 
 These are t-SNE projections of the embeddings of 10 boards sampled from 10 different games.
-<img width="870" height="470" alt="image" src="https://github.com/user-attachments/assets/cb112f39-4722-4949-9304-41ea94e51b14" />
+<img width="630" height="470" alt="image" src="https://github.com/user-attachments/assets/8272776d-0fd8-4823-9586-0b9cc2d7476f" />
